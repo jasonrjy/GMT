@@ -1,0 +1,288 @@
+﻿<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>GMT</title>
+    <style>
+      .chat_log{ width: 95%; height: 200px; }
+      .name{ width: 10%; }
+      .message{ width: 70%; }
+      .chat{ width: 10%; }
+
+      .pads{
+            background: lightblue;
+            width: 100%;
+            display: flex;
+      }
+      .pads > div{
+          height: 100px;
+          width: 100px;
+          flex: 1;
+          cursor: pointer;
+      }
+      .pads > div:hover {
+          background: lightsteelblue;
+      }
+      .pad1 {
+          background: lightseagreen;
+      }
+      .pad2 {
+          background: rgb(178, 32, 112);
+      }
+      .pad3 {
+          background: rgb(214, 141, 30);
+      }
+      .pad4 {
+          background: rgb(64, 55, 196);
+      }
+      .pad5 {
+          background: rgb(4, 184, 13);
+      }
+      .pad6 {
+          background: rgb(216, 55, 189);
+      }
+
+      /* .button {
+        background-color: white;
+        border: 0;
+        background: transparent;
+        box-sizing: border-box;
+        width: 0;
+        height: 50px;
+
+        border-color: transparent transparent transparent #202020;
+        transition: 100ms all ease;
+        cursor: pointer;
+
+        border-style: double;
+        border-width: 0px 0 0px 50px;
+      }
+      .button :hover {
+          border-color: transparent transparent transparent #404040;
+      }
+      .paused {
+        border-style: solid;
+        border-width: 25px 0 25px 50px;
+      } */
+
+
+    </style>
+    <link
+    rel="stylesheet"
+    href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.8.2/css/all.min.css"
+  /> 
+  </head>
+
+  <body>
+    <div><h4 id="chatRoomId"></h4></div>
+    <div class="buttonArea">
+      <span class="playBtnArea waiting">
+        <i class="fas fa-play" id="playBtn"></i>
+        <!-- <i class="fas fa-pause" id="paused"></i> -->
+      </span>
+      <span class="skipBtn">
+        <i class="fas fa-forward"></i>
+      </span>
+
+      <span class="skipCount_wrap blinking">Skip Count : <span id="skipCount">0</span></span>
+    </div>
+
+    <div>
+      <textarea id="chatLog" class="chat_log" readonly></textarea>
+    </div>
+    <form id="chat">
+      <input id="name" class="name" type="text" readonly>
+      <input id="message" class="message" type="text">
+      <input value="chat" class="chat" type="submit">
+    </form>
+
+    <div id="testMusicbox" class="box">
+      <div class="pads" style="display: none;">
+        <div class="pad1">
+          <audio class="sound" src="butterfly.mp3"></audio>
+        </div>
+        <div class="pad2">
+          <audio class="sound" src="lie.mp3"></audio>
+        </div>
+        <div class="pad3">
+          <audio class="sound" src="cat.mp3"></audio>
+        </div>
+        <div class="pad4">
+          <audio class="sound" src="sky.mp3"></audio>
+        </div>
+      </div>
+
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="//code.jquery.com/jquery-1.11.1.js"></script>
+    <script>
+
+      let music_index = -1;
+      let skipVote = 0;
+      let sounds = document.querySelectorAll(".sound");
+
+      let socket = io();
+      let user_name;
+      let roomId = "";
+
+      let room_list = [];
+
+      // window.addEventListener('load', ()=> {
+      //   let sounds = document.querySelectorAll(".sound");
+      //   let pads = document.querySelectorAll(".pads div");
+
+      //   pads.forEach((pad, index)=> {
+      //     pad.addEventListener('click', function() {
+      //       sounds.forEach(inx=> {
+      //         inx.pause();
+      //       });
+
+      //       if (sounds[index]){
+      //         sounds[index].currentTime = 0;
+      //         sounds[index].play();
+      //       }
+
+      //     });
+      //   })
+      // });
+
+      function playBtnClick() {
+        let area = $(".playBtnArea");
+
+        if (area.hasClass('waiting')) {
+          area.removeClass('waiting');
+          area.find('.fas').toggleClass('fa-play fa-pause');
+        }
+      }
+
+      function nextTrackClick() {
+        sounds[music_index].pause();
+          if (music_index != sounds.length-1 ) {
+            music_index++;
+            sounds[music_index].currentTime = 0;
+            let area = $(".playBtnArea");
+            if (area.hasClass('waiting')) {
+              area.find('.fas').toggleClass('fa-play fa-pause');
+              area.toggleClass('waiting');
+            }
+            sounds[music_index].play();
+          }
+      }
+
+      function playNext() {
+        sounds[music_index].pause();
+        if (music_index != sounds.length-1 ) {
+          music_index++;
+          sounds[music_index].currentTime = 0;
+          sounds[music_index].play();
+        }
+      }
+
+      function playMusic(index, time) {
+        sounds.forEach(sound => {
+          sound.pause();
+        });
+
+        if (time) sounds[index].currentTime = time;
+        else sounds[index].currentTime = 0;
+        sounds[index].play();
+      }
+
+      $(document).ready(function() {
+        $(".playBtnArea").click(function() {
+          if (music_index == -1) 
+            socket.emit('play_button_click', !$(this).hasClass('waiting'));
+          
+        });
+
+        $(".skipBtn").click(function() {
+          if (skipVote == 0) {
+            socket.emit('skip_vote'); 
+            skipVote = 1;
+          }
+                     
+        })
+      });
+
+      // function getParameterByName(name) {
+      //     name = name.replace(/[\[]/, "\\[").replace(/[\]]/, "\\]");
+      //     var regex = new RegExp("[\\?&]" + name + "=([^&#]*)"),
+      //         results = regex.exec(location.search);
+      //     return results === null ? "" : decodeURIComponent(results[1].replace(/\+/g, " "));
+      // }
+
+      socket.emit('join_room', roomId, user_name);
+
+      $('select').on('change', () => {
+        socket.emit('leave_room', roomId, user_name);
+        roomId = $('select option:selected').val();
+        socket.emit('join_room', roomId, user_name);
+      });
+
+      socket.on('leave_room', (roomId, name)=> {
+        $('#chatLog').append(name + ' leaved '+ roomId+'\n');
+        $('#chatLog').scrollTop($('#chatLog')[0].scrollHeight);
+      });
+
+      socket.on('join_room', (p_roomId, name)=> {
+        roomId = p_roomId;
+        $('#chatRoomId').text(roomId);
+        $('#chatLog').append(name + ' joined '+ roomId+'\n');
+        $('#chatLog').scrollTop($('#chatLog')[0].scrollHeight);
+      });
+
+      $('#chat').on('submit', function(e) {
+        if (!$(".playBtnArea").hasClass('waiting')) {
+          socket.emit('send_message_in_play', user_name, roomId, $('#message').val());
+        } else {
+          socket.emit('send_message', user_name, roomId, $('#message').val());
+        }
+        
+        $('#message').val("");
+        $('#message').focus();
+        e.preventDefault();
+      });
+
+      socket.on('receive_message', (roomId, msg)=> {
+        $('#chatLog').append(msg+"\n");
+        $('#chatLog').scrollTop($('#chatLog')[0].scrollHeight);
+      });
+
+      socket.on('receive_system_message', (msg)=> {
+        $('#chatLog').append(msg+"\n");
+        $('#chatLog').scrollTop($('#chatLog')[0].scrollHeight);
+      });
+
+      socket.on('change_name', function(name){
+        user_name = name;
+        $('#name').val(user_name);
+      });
+
+      socket.on('play_button_click', ()=> {
+        playBtnClick();
+      });
+
+      socket.on('next_track_click', ()=> {
+        nextTrackClick();
+      });
+
+      socket.on('play_next', ()=> {
+        playNext();
+      });
+
+      socket.on('play_music', (index, time)=> {
+        music_index = index;
+        skipVote = 0;
+        playMusic(index, time);
+      });
+
+      socket.on('change_skip_vote', (vote) =>{
+        document.getElementById("skipCount").textContent = vote;
+        // $('#skipCount').textContent= vote;
+        
+      })
+    </script>
+  </body>
+
+</html>

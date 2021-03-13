@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta charset="utf-8">
+        <title>GMT</title>
+        <style>
+            .message{ width: 70%; }
+            .chatRoom{ width: 20%; }
+
+            .modal_wrap {
+                display : none;
+                width: 500px;
+                height: 500px;
+                position: absolute;
+                top: 50%;
+                left: 50%;
+                margin: -250px 0 0 -250px;
+                background: #eee;
+                z-index:2;
+            }
+
+            .black_bg {
+                display: none;
+                position: absolute;
+                content: "";
+                width: 100%;
+                height: 100%;
+                background-color: rgba(0,0,0,0.5);
+                top: 0;
+                left: 0;
+                z-index : 1;
+            }
+
+            .modal_close {
+                width: 26px;
+                height: 26px;
+                position: absolute;
+                top: -30px;
+                right: 0;
+            }
+
+            .modal_close> a {
+                display: block;
+                width: 100%;
+                height: 100%;
+                background: url(https://img.icons8.com/metro/26/000000/close-window.png);
+                text-indent: -9999px;
+
+            }
+        </style>
+    </head>
+    <body>
+        <div class="notice">
+            <h4>입장할 채팅방을 선택하세요.</h4>
+        </div>
+        <div class="chatRoom_list_wrap">
+            <ul id="chatRoom_list">
+                <li>Room1</li>
+                <li>Room2</li>
+            </ul>
+        </div>
+
+        <div class="create_chatRoom_wrap">
+            <button id="modal_btn" type="button">방 만들기</button>
+            <div class="black_bg"></div>
+
+            <div class="modal_wrap">
+                <div class="modal_close"><a href="#">close</a></div>
+                <div>
+                    <!-- 모달창 내용 -->
+                    <div class="roomForm_wrap">
+                        <form method="post" id="roomForm" action="/CreateRoom">
+                            <input type="text" id="roomName" name="roomName" placeholder="방 이름">
+                            <input type="text" id="mapId" name="mapId" placeholder="맵">
+                            <button type="submit" class="create_map">Create!</button>
+                        </form>
+
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+    </body>
+
+    <!-- <script src="/socket.io/socket.io.js"></script> -->
+    <script src="//code.jquery.com/jquery-1.11.1.js"></script>
+    <script src='https://malsup.github.com/jquery.form.js'></script>
+    <script>
+        let room = [];
+        let room_list = document.getElementById('chatRoom_list');
+
+        window.onload = function() {
+            function onClick() {
+                document.querySelector('.modal_wrap').style.display = 'block';
+                document.querySelector('.black_bg').style.display = 'block';
+            }
+
+            function offClick() {
+                document.querySelector('.modal_wrap').style.display = 'none';
+                document.querySelector('.black_bg').style.display = 'none';
+            }
+
+            document.getElementById('modal_btn').addEventListener('click', onClick);
+            document.querySelector('.modal_close').addEventListener('click', offClick);
+        }
+
+        function enterChatRoom(name, roomId) {
+            let form = document.createElement("form");
+            form.setAttribute("id", "enterChatRoomForm");
+            form.setAttribute("method", 'post');
+            form.setAttribute('action', '/ClientChatRoom');
+            document.charset = "utf-8";
+
+            // for (let key in params) {
+            //     let hiddenField = document.createElement('input');
+            //     hiddenField.setAttribute("type", "hidden");
+            //     hiddenField.setAttribute("name", key);
+            //     hiddenField.setAttribute('value', params[key]);
+            //     form.appendChild(hiddenField);
+            // }
+
+            let hiddenField = document.createElement('input');
+            hiddenField.setAttribute("type", "hidden");
+            hiddenField.setAttribute("name", "name");
+            hiddenField.setAttribute('value', name);
+            form.appendChild(hiddenField);
+
+            hiddenField = document.createElement('input');
+            hiddenField.setAttribute("type", "hidden");
+            hiddenField.setAttribute("name", "roomId");
+            hiddenField.setAttribute('value', roomId);
+            form.appendChild(hiddenField);
+
+            document.body.appendChild(form);
+            form.submit();
+        }
+
+        function enterRoom(name, roomId) {
+            xhr.open("POST", '/ClientChatRoom', true);
+            xhr.setRequestHeader('Content-Type', 'application/json');
+            xhr.send(JSON.stringify({
+                'name': name,
+                'roomId' : roomId
+            }));
+        }
+        
+
+        // socket.on('get_room_list', (room_lists) => {
+        //     room_list.innerHTML = "";
+        //     room_lists.forEach(function(element){
+        //         room.push(element);
+        //     });
+        //     room.forEach(function(element){
+                
+        //         let li = document.createElement("li");
+        //         li.textContent = element;
+        //         room_list.appendChild(li);
+        //     });
+
+        // });
+
+        // $('#enterChatRoomForm')
+        //     .ajaxForm({
+        //         // url : 'myscript.php', // or whatever
+        //         dataType : 'json',
+        //         success : function (response) {
+        //             console.log(response.body);
+        //         }
+        //     });
+
+        room_list.addEventListener('click', function(e){
+            if(e.target && e.target.nodeName == "LI") {
+                // console.log(e.target.innerText);
+                // location.href="ClientChatRoom?roomId="+e.target.innerText;
+                // socket.emit('set_roomId', e.target.innerText);
+                // location.href="ClientChatRoom";
+                // window.location.replace("/ClientChatRoom");
+                
+                // let ans = fetch('/accessChatRoom/'+e.target.innerText)
+                // .then(res => res.json())
+                // .then(result => {
+                //     console.log(result['play']; 
+                //     return result['play']});
+
+                let result = fetch('/accessChatRoom/'+e.target.innerText)
+                .then(res => res.json())
+                .then(value => {
+                    if(value['status'] == 'waiting') {
+                        enterChatRoom("testName", e.target.innerText);
+                        // fetch('/ClientChatRoom', {method : 'POST'})
+                        // .then(function(response) {
+                        //     return response.text();
+                        // })
+                        // .then(function(html) {
+                        //     // let parser = new DOMParser();
+                        //     // let doc = parser.parseFromString(html, "text/html");
+                        //     document.body.innerHTML = html;
+                        // })
+                        // .catch(function(err) {
+                        //     console.log('Failed to fetch page : ', err);
+                        // })
+                    }
+                })
+            }
+        });
+
+        $('#create_chatRoom').on('submit', e=> {
+            console.log("submit start");
+
+            id = $('#chatRoom_id').val();
+            console.log(id);
+
+            // socket.emit('create_chatroom', id);
+            $('#chatRoom_id').val("");
+            $('#chatRoom_id').focus();
+            e.preventDefault();
+            // location.href="ClientChatRoom?roomId="+id;
+            location.href="ClientChatRoom";
+        });
+        
+
+    </script>
+</html>
