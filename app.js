@@ -38,7 +38,8 @@ app.set('view engine', 'ejs');
 
 let router = require('./router/main.js')(app);
 
-app.use(express.static('music'));
+// app.use(express.static('music'));
+app.use(express.static(__dirname + 'map'));
 
 let nowName="";
 let nowRoomId="";
@@ -79,7 +80,24 @@ app.post('/ClientChatRoom', function(req, res) {
     } else {
         // console.log('render');
         // res.redirect('ClientChatRoom.html');
-        res.render('ClientChatRoom.ejs');
+        let music_list = {};
+        mapId = rooms[req.body.roomId].map_id;
+        db.query("SELECT * from gmt.music WHERE map_mapId = " + mapId, function(err, results, fields) {
+            if (err) {
+                console.log(err);
+            }
+            
+            for (const [index, element] of results.entries()) {
+                music_list['music'+index] = 'map/'+mapId+'/'+element.id;
+            }
+            console.log(music_list);
+            res.render('ClientChatRoom.ejs', {music_list});
+        });
+
+        // let music = {test1 : "test1", test2 : "test2"};
+        // music['test3'] = "test3";
+        // console.log(music_list);
+        
         // res.sendFile(__dirname + '/views/ClientChatRoom.html')
     }
 });
@@ -94,11 +112,46 @@ app.post('/CreateRoom', function(req, res) {
     nowRoomId = roomId;
     res.render('ClientChatRoom.html');
 
-})
+});
 
-// let answer_list = ["나는나비", "거짓말", "낭만고양이", "하늘을달리다"];
-// let answer_iter = answer_list[Symbol.iterator]();
-// let answer = answer_iter.next();
+app.get('/map/:mapId/:fileName', function(req,res) {
+    let filePath = __dirname + '/map/'+req.params.mapId+'/'+req.params.fileName;
+    let stat = fs.statSync(filePath);
+
+    range = req.headers.range;
+    let readStream;
+
+    if (range !== undefined) {
+        var parts = range.replace(/bytes=/, "").split("-");
+
+        var partial_start = parts[0];
+        var partial_end = parts[1];
+
+        if ((isNaN(partial_start) && partial_start.length > 1) || (isNaN(partial_end) && partial_end.length > 1)) {
+            return res.sendStatus(500); //ERR_INCOMPLETE_CHUNKED_ENCODING
+        }
+
+        var start = parseInt(partial_start, 10);
+        var end = partial_end ? parseInt(partial_end, 10) : stat.size - 1;
+        var content_length = (end - start) + 1;
+
+        res.status(206).header({
+            'Content-Type': 'audio/mpeg',
+            'Content-Length': content_length,
+            'Content-Range': "bytes " + start + "-" + end + "/" + stat.size
+        });
+
+        readStream = fs.createReadStream(filePath, {start: start, end: end});
+    } else {
+        res.header({
+            'Content-Type': 'audio/mpeg',
+            'Content-Length': stat.size
+        });
+        readStream = fs.createReadStream(filePath);
+    }
+    readStream.pipe(res);
+});
+
 
 const default_room_setting = {
     music_index : -1, max_num : 8, 
@@ -132,7 +185,7 @@ function createRoom(roomId, mapId) {
             });
         }
         
-    })
+    });
 
     
 }
@@ -193,13 +246,6 @@ io.on('connection', function(socket){
         socket.join(socket.roomId);
         rooms[socket.roomId].socket_ids[user_name] = socket.id;
 
-        let stream = fs.createReadStream('./map/'+rooms[socket.roomId].map_id+'/4.mp3', {flags:'r'});
-        stream.on('data', function(data) {
-            console.log(typeof data);
-            console.log('sending chunk of data')
-            socket.send(data);
-        });
-
         io.to(socket.roomId).emit('join_room', socket.roomId, socket.name);
     });
 
@@ -220,13 +266,26 @@ io.on('connection', function(socket){
 
     socket.on('send_message_in_play', function(name, roomId, text) {
 
+        let room_object = rooms[roomId];
+        let music_index = room_object.music_index;
+        let ans = room_object.map_info[music_index].answer;
+
         console.log('send msg, in playing');
+        console.log("process : " + room_object.process);
+        console.log("music_index : " + music_index);
+        console.log("ans : " + ans);
+
+        
+        // let ans = rooms[roomId].map_info[music_index][answer];
+        // console.log(rooms[roomId].map_info);
+        // console.log(rooms[roomId].map_info[music_index]);
+        // console.log(rooms[roomId].map_info[music_index].answer);
+
 
         let msg = name + ' : ' + text;
-        let room_object = rooms[roomId];
+        
         io.to(roomId).emit('receive_message', roomId, msg);
-        if (room_object.process && text == answer_list[room_object.music_index]) {
-            room_object.music_index += 1;
+        if (room_object.process && ans.includes(text)) {
             room_object.process = 0;
             console.log(room_object.process);
             io.to(roomId).emit('receive_system_message', name + '이 정답을 맞췄습니다!');
@@ -271,6 +330,7 @@ io.on('connection', function(socket){
             if (room_object.skip_vote == room_object.skip_num) {
                 room_object.skip_vote = 0;
                 room_object.skip_arr = [];
+                room_object.process = 1;
                 console.log(room_object.process);
                 room_object.music_index++;
                 room_object.skip_num = io.sockets.adapter.rooms.get(socket.roomId).size;

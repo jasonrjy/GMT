@@ -95,10 +95,11 @@
       <input id="message" class="message" type="text">
       <input value="chat" class="chat" type="submit">
     </form>
+    
 
     <div id="testMusicbox" class="box">
-      <div class="pads" style="display: none;">
-        <div class="pad1">
+      <div class="pads" >
+        <!-- <div class="pad1">
           <audio class="sound" src="butterfly.mp3"></audio>
         </div>
         <div class="pad2">
@@ -109,8 +110,14 @@
         </div>
         <div class="pad4">
           <audio class="sound" src="sky.mp3"></audio>
-        </div>
+        </div> -->
+        <% for(var i=0; i<Object.keys(music_list).length; i++){ %>
+          <audio class="sound" src="<%= music_list['music'+i] %>.mp3" ></audio>
+        <%}%>
+        
       </div>
+
+      
 
     </div>
 
@@ -180,12 +187,16 @@
       }
 
       function playMusic(index, time) {
+        console.log(sounds);
+        console.log(index);
+
         sounds.forEach(sound => {
           sound.pause();
         });
 
         if (time) sounds[index].currentTime = time;
         else sounds[index].currentTime = 0;
+        console.log(sounds[index]);
         sounds[index].play();
       }
 
@@ -233,11 +244,14 @@
       });
 
       $('#chat').on('submit', function(e) {
-        if (!$(".playBtnArea").hasClass('waiting')) {
-          socket.emit('send_message_in_play', user_name, roomId, $('#message').val());
-        } else {
-          socket.emit('send_message', user_name, roomId, $('#message').val());
+        if ( $('#message').val() != "") {
+          if (!$(".playBtnArea").hasClass('waiting')) {
+            socket.emit('send_message_in_play', user_name, roomId, $('#message').val());
+          } else {
+            socket.emit('send_message', user_name, roomId, $('#message').val());
+          }
         }
+        
         
         $('#message').val("");
         $('#message').focus();
